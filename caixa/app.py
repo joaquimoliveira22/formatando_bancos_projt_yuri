@@ -73,7 +73,6 @@ def salvar_data_valor(df, arquivo_origem):
     df_out = df[[col_data, col_valor]].copy()
     df_out.columns = ['Data_Mov', 'Valor']
     
-    # Conversão de datas para o formato dd/mm/aaaa
     df_out['Data_Mov'] = pd.to_datetime(df_out['Data_Mov'], errors='coerce').dt.strftime('%d/%m/%Y')
     
     nome_saida = criar_nome_arquivo_saida(arquivo_origem, "data_valor")
