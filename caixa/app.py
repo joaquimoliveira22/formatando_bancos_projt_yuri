@@ -72,20 +72,10 @@ def salvar_data_valor(df, arquivo_origem):
     col_data, col_valor = encontrar_colunas(df)
     df_out = df[[col_data, col_valor]].copy()
     df_out.columns = ['Data_Mov', 'Valor']
-
-    # Tentativa 1: converter datas do tipo string (com dia primeiro)
-    df_out['Data_Mov'] = pd.to_datetime(df_out['Data_Mov'], dayfirst=True, errors='coerce')
-
-    # Tentativa 2: converter números como datas do Excel, se necessário
-    if df_out['Data_Mov'].isna().all():
-        df_out['Data_Mov'] = pd.to_datetime('1899-12-30') + pd.to_timedelta(df_out['Data_Mov'], unit='D')
-
-    # Remover datas inválidas
-    df_out = df_out.dropna(subset=['Data_Mov'])
-
-    # Formatar como dd/mm/aaaa
-    df_out['Data_Mov'] = df_out['Data_Mov'].dt.strftime('%d/%m/%Y')
-
+    
+    # Conversão de datas para o formato dd/mm/aaaa
+    df_out['Data_Mov'] = pd.to_datetime(df_out['Data_Mov'], errors='coerce').dt.strftime('%d/%m/%Y')
+    
     nome_saida = criar_nome_arquivo_saida(arquivo_origem, "data_valor")
     df_out.to_excel(nome_saida, index=False)
     print(f"Arquivo com Data_Mov e Valor salvo em:\n{os.path.abspath(nome_saida)}")
