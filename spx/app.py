@@ -13,7 +13,7 @@ def converter_xls_para_xlsx(caminho):
             pe.save_book_as(file_name=caminho, dest_file_name=novo_caminho)
             return novo_caminho
         except Exception as e:
-            print(f"❌ Erro ao converter .xls para .xlsx: {e}")
+            print(f" Erro ao converter .xls para .xlsx: {e}")
             return caminho
     return caminho
 
@@ -79,7 +79,7 @@ def extrair_dados(arquivo):
 
 def processar_excel(xls, arquivo):
     for sheet_name in xls.sheet_names:
-        print(f"\n📄 Processando planilha: {sheet_name}")
+        print(f"\n Processando planilha: {sheet_name}")
         try:
             df = pd.read_excel(arquivo, sheet_name=sheet_name, header=None)
             processar_dataframe(df, arquivo, sheet_name)
