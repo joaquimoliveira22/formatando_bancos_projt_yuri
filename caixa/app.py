@@ -3,6 +3,8 @@ import tkinter as tk
 from tkinter import filedialog
 import unicodedata
 import os
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 
 def selecionar_arquivo():
     root = tk.Tk()
@@ -52,32 +54,66 @@ def carregar_dados(arquivo):
 def encontrar_colunas(df):
     variacoes_data = ['data', 'data_mov', 'dataocorrencia', 'data_ocorrencia', 'data movimentacao', 'data_movimentacao']
     variacoes_valor = ['valor', 'valores', 'vlr', 'val', 'montante']
+    variacoes_debcred = ['deb_cred', 'debito_credito', 'debcre', 'credito_debito', 'tipo']
     
-    col_data = None
-    col_valor = None
+    col_data = col_valor = col_debcred = None
     
     for col in df.columns:
         col_norm = normalizar_texto(str(col))
-        if any(v in col_norm for v in variacoes_data):
+        if any(v in col_norm for v in variacoes_data) and col_data is None:
             col_data = col
-        if any(v in col_norm for v in variacoes_valor):
+        if any(v in col_norm for v in variacoes_valor) and col_valor is None:
             col_valor = col
+        if any(v in col_norm for v in variacoes_debcred) and col_debcred is None:
+            col_debcred = col
     
     if col_data is None or col_valor is None:
-        raise ValueError("Não foi possível encontrar as colunas Data_Mov e Valor")
+        raise ValueError("Não foi possível encontrar as colunas 'Data_Mov' e 'Valor'")
     
-    return col_data, col_valor
+    return col_data, col_valor, col_debcred
 
 def salvar_data_valor(df, arquivo_origem):
-    col_data, col_valor = encontrar_colunas(df)
-    df_out = df[[col_data, col_valor]].copy()
-    df_out.columns = ['Data_Mov', 'Valor']
+    col_data, col_valor, col_debcred = encontrar_colunas(df)
     
-    df_out['Data_Mov'] = pd.to_datetime(df_out['Data_Mov'], errors='coerce').dt.strftime('%d/%m/%Y')
+    colunas_para_exportar = [col_data, col_valor]
+    novos_nomes = ['Data_Mov', 'Valor']
     
+    if col_debcred:
+        colunas_para_exportar.append(col_debcred)
+        novos_nomes.append('Deb_Cred')
+    
+    df_out = df[colunas_para_exportar].copy()
+    df_out.columns = novos_nomes
+
     nome_saida = criar_nome_arquivo_saida(arquivo_origem, "data_valor")
     df_out.to_excel(nome_saida, index=False)
-    print(f"Arquivo com Data_Mov e Valor salvo em:\n{os.path.abspath(nome_saida)}")
+
+    if 'Deb_Cred' in df_out.columns:
+        colorir_linhas(nome_saida, 'Deb_Cred')
+
+    print(f"Arquivo com Data_Mov, Valor{', Deb_Cred' if col_debcred else ''} salvo em:\n{os.path.abspath(nome_saida)}")
+
+def colorir_linhas(caminho_arquivo, coluna_debcred):
+    wb = load_workbook(caminho_arquivo)
+    ws = wb.active
+
+    azul = PatternFill(start_color='87CEFA', end_color='87CEFA', fill_type='solid')  #cor azul
+    vermelho = PatternFill(start_color='FA8072', end_color='FA8072', fill_type='solid')  #cor vermelha
+
+    header = [cell.value for cell in ws[1]]
+    idx_debcred = header.index('Deb_Cred') + 1
+
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
+        valor = row[idx_debcred - 1].value
+        if isinstance(valor, str):
+            if valor.strip().upper() == 'C':
+                for cell in row:
+                    cell.fill = azul
+            elif valor.strip().upper() == 'D':
+                for cell in row:
+                    cell.fill = vermelho
+
+    wb.save(caminho_arquivo)
 
 def main():
     arquivo = selecionar_arquivo()

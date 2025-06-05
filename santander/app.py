@@ -22,7 +22,7 @@ def criar_nome_arquivo_saida(arquivo_original, nome_planilha):
     base, ext = os.path.splitext(arquivo_original)
     contador = 1
     while True:
-        novo_nome = f"{base}_extraido_{nome_planilha}_{contador}{ext}"
+        novo_nome = f"{base}_extraido_{nome_planilha}_{contador}.xlsx"
         if not os.path.exists(novo_nome):
             return novo_nome
         contador += 1
@@ -36,9 +36,22 @@ def formatar_contabil(valor):
     except:
         return str(valor)
 
+def converter_xls_para_xlsx(arquivo):
+    print(f"Convertendo arquivo .xls para .xlsx: {arquivo}")
+    df_dict = pd.read_excel(arquivo, sheet_name=None, engine='xlrd')
+    novo_arquivo = arquivo.replace('.xls', '_convertido.xlsx')
+    with pd.ExcelWriter(novo_arquivo, engine='openpyxl') as writer:
+        for nome, df in df_dict.items():
+            df.to_excel(writer, sheet_name=nome, index=False)
+    print(f"Arquivo convertido salvo como: {novo_arquivo}")
+    return novo_arquivo
+
 def extrair_dados(arquivo):
     try:
-        if arquivo.lower().endswith(('.xlsx', '.xls')):
+        if arquivo.lower().endswith('.xls'):
+            arquivo = converter_xls_para_xlsx(arquivo)
+
+        if arquivo.lower().endswith('.xlsx'):
             xls = pd.ExcelFile(arquivo)
             processar_excel(xls, arquivo)
         elif arquivo.lower().endswith('.csv'):
@@ -118,26 +131,17 @@ def processar_dataframe(df, arquivo, nome_planilha):
 
         df_final = df_final[[col_data, col_valor, col_saldo]]
         df_final.columns = ['Data_da_Ocorrencia', 'Valor', 'Saldo']
-
-        # Mantém todas as linhas (não remove as últimas)
-        # Remove apenas a linha de cabeçalho original se necessário
         df_final = df_final.iloc[1:] if linha_cabecalho == 0 else df_final
 
-        # Formata os valores contábeis
         df_final['Valor'] = df_final['Valor'].apply(formatar_contabil)
         df_final['Saldo'] = df_final['Saldo'].apply(formatar_contabil)
 
-        # Preserva o formato original da data (dd/mm/aaaa)
         if not pd.api.types.is_datetime64_any_dtype(df_final['Data_da_Ocorrencia']):
             try:
-                # Verifica se já está no formato dd/mm/aaaa
                 pd.to_datetime(df_final['Data_da_Ocorrencia'], format='%d/%m/%Y', errors='raise')
-                # Se não gerou erro, já está no formato correto
             except:
-                # Se não estiver no formato, tenta converter mantendo dd/mm/aaaa
                 df_final['Data_da_Ocorrencia'] = pd.to_datetime(
-                    df_final['Data_da_Ocorrencia'], 
-                    errors='coerce'
+                    df_final['Data_da_Ocorrencia'], errors='coerce'
                 ).dt.strftime('%d/%m/%Y')
 
         print("\nDados extraídos e formatados")

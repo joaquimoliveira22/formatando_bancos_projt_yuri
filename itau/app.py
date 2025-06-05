@@ -3,6 +3,32 @@ import tkinter as tk
 from tkinter import filedialog
 import unicodedata
 import os
+import platform
+
+# NOVA FUNÇÃO: Conversor de XLS para XLSX (sem depender do Excel)
+def converter_xls_para_xlsx(caminho_arquivo):
+    import xlrd
+    from openpyxl import Workbook
+
+    if not caminho_arquivo.lower().endswith('.xls'):
+        return caminho_arquivo  # já é .xlsx ou csv
+
+    print("Convertendo .xls para .xlsx...")
+    wb_xls = xlrd.open_workbook(caminho_arquivo)
+    pasta = os.path.dirname(caminho_arquivo)
+    nome = os.path.splitext(os.path.basename(caminho_arquivo))[0]
+    novo_arquivo = os.path.join(pasta, nome + '.xlsx')
+
+    wb_xlsx = Workbook()
+    ws_xlsx = wb_xlsx.active
+    sheet = wb_xls.sheet_by_index(0)
+
+    for row in range(sheet.nrows):
+        ws_xlsx.append(sheet.row_values(row))
+
+    wb_xlsx.save(novo_arquivo)
+    print(f"Arquivo convertido para: {novo_arquivo}")
+    return novo_arquivo
 
 def selecionar_arquivo():
     root = tk.Tk()
@@ -37,6 +63,9 @@ def formatar_contabil(valor):
         return str(valor)
 
 def extrair_dados(arquivo):
+    if arquivo.lower().endswith('.xls'):
+        arquivo = converter_xls_para_xlsx(arquivo)
+
     try:
         if arquivo.lower().endswith(('.xlsx', '.xls')):
             xls = pd.ExcelFile(arquivo)
@@ -119,24 +148,18 @@ def processar_dataframe(df, arquivo, nome_planilha):
         df_final = df_final[[col_data, col_valor, col_saldo]]
         df_final.columns = ['Data_da_Ocorrencia', 'Valor', 'Saldo']
 
-        # Mantém todas as linhas (não remove as últimas)
-        # Remove apenas a linha de cabeçalho original se necessário
-        df_final = df_final.iloc[1:] if linha_cabecalho == 0 else df_final
+        if linha_cabecalho == 0:
+            df_final = df_final.iloc[1:]
 
-        # Formata os valores contábeis
         df_final['Valor'] = df_final['Valor'].apply(formatar_contabil)
         df_final['Saldo'] = df_final['Saldo'].apply(formatar_contabil)
 
-        # Preserva o formato original da data (dd/mm/aaaa)
         if not pd.api.types.is_datetime64_any_dtype(df_final['Data_da_Ocorrencia']):
             try:
-                # Verifica se já está no formato dd/mm/aaaa
                 pd.to_datetime(df_final['Data_da_Ocorrencia'], format='%d/%m/%Y', errors='raise')
-                # Se não gerou erro, já está no formato correto
             except:
-                # Se não estiver no formato, tenta converter mantendo dd/mm/aaaa
                 df_final['Data_da_Ocorrencia'] = pd.to_datetime(
-                    df_final['Data_da_Ocorrencia'], 
+                    df_final['Data_da_Ocorrencia'],
                     errors='coerce'
                 ).dt.strftime('%d/%m/%Y')
 

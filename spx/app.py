@@ -3,6 +3,19 @@ import tkinter as tk
 from tkinter import filedialog
 import unicodedata
 import os
+import pyexcel as pe
+
+def converter_xls_para_xlsx(caminho):
+    if caminho.lower().endswith(".xls"):
+        novo_caminho = caminho.replace(".xls", ".xlsx")
+        print(f"Convertendo arquivo .xls para .xlsx: {caminho}")
+        try:
+            pe.save_book_as(file_name=caminho, dest_file_name=novo_caminho)
+            return novo_caminho
+        except Exception as e:
+            print(f"❌ Erro ao converter .xls para .xlsx: {e}")
+            return caminho
+    return caminho
 
 def selecionar_arquivos():
     root = tk.Tk()
@@ -47,21 +60,22 @@ def arquivo_parece_html(caminho):
 def extrair_dados(arquivo):
     try:
         if arquivo_parece_html(arquivo):
-            print(f"\n⚠️  Arquivo ignorado (HTML detectado): {arquivo}")
+            print(f"\n Arquivo ignorado (HTML detectado): {arquivo}")
             return
+
+        if arquivo.lower().endswith('.xls'):
+            arquivo = converter_xls_para_xlsx(arquivo)
 
         if arquivo.lower().endswith('.xlsx'):
             xls = pd.ExcelFile(arquivo, engine='openpyxl')
             processar_excel(xls, arquivo)
-        elif arquivo.lower().endswith('.xls'):
-            xls = pd.ExcelFile(arquivo, engine='xlrd')
-            processar_excel(xls, arquivo)
         elif arquivo.lower().endswith('.csv'):
             processar_csv(arquivo)
         else:
-            print(f"\n❌ Formato não suportado: {arquivo}")
+            print(f"\nFormato não suportado: {arquivo}")
     except Exception as e:
-        print(f"\n❌ Erro ao abrir {arquivo}: {e}")
+        print(f"\n Erro ao abrir {arquivo}: {e}")
+
 
 def processar_excel(xls, arquivo):
     for sheet_name in xls.sheet_names:
@@ -70,10 +84,10 @@ def processar_excel(xls, arquivo):
             df = pd.read_excel(arquivo, sheet_name=sheet_name, header=None)
             processar_dataframe(df, arquivo, sheet_name)
         except Exception as e:
-            print(f"❌ Erro ao processar planilha {sheet_name}: {e}")
+            print(f"Erro ao processar planilha {sheet_name}: {e}")
 
 def processar_csv(arquivo):
-    print("\n📄 Processando arquivo CSV")
+    print("\n Processando arquivo CSV")
     encodings = ['utf-8', 'latin1', 'iso-8859-1', 'cp1252']
     separadores = [',', ';', '\t']
     for encoding in encodings:
@@ -85,7 +99,7 @@ def processar_csv(arquivo):
                 return
             except:
                 continue
-    print("❌ Não foi possível ler o arquivo CSV")
+    print("Não foi possível ler o arquivo CSV")
 
 def processar_dataframe(df, arquivo, nome_planilha):
     variacoes_cabecalhos = {
@@ -130,10 +144,9 @@ def processar_dataframe(df, arquivo, nome_planilha):
         col_saldo = next((col for col in df_final.columns if 'saldo' in col), None)
 
         if not all([col_data1, col_valor, col_saldo]):
-            print("❌ As colunas esperadas não foram encontradas.")
+            print(" As colunas esperadas não foram encontradas.")
             return
 
-        # Inclui as duas colunas de data, se existirem
         if col_data2 and col_data2 != col_data1:
             df_final = df_final[[col_data2, col_data1, col_valor, col_saldo]]
             df_final.columns = ['Data da Referência', 'Data do Extrato', 'Valor', 'Saldo']
@@ -141,21 +154,17 @@ def processar_dataframe(df, arquivo, nome_planilha):
             df_final = df_final[[col_data1, col_valor, col_saldo]]
             df_final.columns = ['Data da Referência', 'Valor', 'Saldo']
 
-        # Trata as colunas de data
         if 'Data da Referência' in df_final.columns:
             df_final['Data da Referência'] = df_final['Data da Referência'].iloc[2:].reset_index(drop=True)
         if 'Data do Extrato' in df_final.columns:
             df_final['Data do Extrato'] = df_final['Data do Extrato'].iloc[2:].reset_index(drop=True)
 
-        # Remove as últimas 4 linhas de Valor e Saldo
         df_final['Valor'] = df_final['Valor'].iloc[:-4].reset_index(drop=True)
         df_final['Saldo'] = df_final['Saldo'].iloc[:-4].reset_index(drop=True)
 
-        # Garante mesmo tamanho
         min_len = min(len(df_final[col]) for col in df_final.columns)
         df_final = df_final.iloc[:min_len]
 
-        # Formatação
         df_final['Valor'] = df_final['Valor'].apply(formatar_contabil)
         df_final['Saldo'] = df_final['Saldo'].apply(formatar_contabil)
 
@@ -164,7 +173,7 @@ def processar_dataframe(df, arquivo, nome_planilha):
                 df_final[col] = pd.to_datetime(df_final[col], errors='coerce')
                 df_final[col] = df_final[col].apply(lambda x: x.strftime('%d/%m/%Y') if pd.notna(x) else '')
 
-        print("📊 Primeiras linhas extraídas:")
+        print(" Primeiras linhas extraídas:")
         print(df_final.head())
 
         nome_saida = criar_nome_arquivo_saida(arquivo, nome_planilha)
